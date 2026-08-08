@@ -1197,7 +1197,7 @@ function renderStereo() {
   renderer.render(
 
     scene,
-    stereo.cameraL
+    stereo.cameraR
 
   );
 
@@ -1233,7 +1233,7 @@ function renderStereo() {
   renderer.render(
 
     scene,
-    stereo.cameraR
+    stereo.cameraL
 
   );
 
