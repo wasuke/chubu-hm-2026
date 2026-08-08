@@ -166,9 +166,29 @@ function applyHeadRotation(){
     return;
   }
   if(!baseSensorQuaternion)baseSensorQuaternion=sensorQuaternion.clone();
+  /*
+    相対回転は「開始姿勢の逆 × 現在姿勢」で求める。
+    以前の current × inverse(base) だと回転がワールド座標系側で
+    適用されるため、端末を横向きにすると pitch が roll に化ける。
+  */
   inverseBaseSensor.copy(baseSensorQuaternion).invert();
-  sensorDelta.copy(sensorQuaternion).multiply(inverseBaseSensor);
-  camera.quaternion.copy(sensorDelta).multiply(baseViewQuaternion);
+
+  sensorDelta
+    .copy(inverseBaseSensor)
+    .multiply(sensorQuaternion);
+
+  /*
+    指で決めた基準視線に、端末のローカル相対回転を後から掛ける。
+    これで
+      上を向く -> 上
+      下を向く -> 下
+      左右を向く -> 左右
+    の軸関係を縦持ち・横持ちで維持する。
+  */
+  camera.quaternion
+    .copy(baseViewQuaternion)
+    .multiply(sensorDelta);
+
   camera.updateMatrixWorld(true);
 }
 
