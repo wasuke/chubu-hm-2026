@@ -7,6 +7,7 @@ const loading = document.getElementById('loading');
 const vrButton = document.getElementById('vrButton');
 const vrExit = document.getElementById('vrExit');
 const resetButton = document.getElementById('resetButton');
+const reloadButton = document.getElementById('reloadButton');
 
 const renderer = new THREE.WebGLRenderer({ antialias: false, alpha: false, powerPreference: 'high-performance' });
 renderer.setClearColor(0x000000, 1);
@@ -155,6 +156,7 @@ function resetView() {
 vrButton.addEventListener('click', enterVR);
 vrExit.addEventListener('click', exitVR);
 resetButton.addEventListener('click', resetView);
+reloadButton.addEventListener('click', () => location.reload());
 
 document.addEventListener('fullscreenchange', () => {
   if (!document.fullscreenElement && vrMode) exitVR();
@@ -172,33 +174,46 @@ function applyHeadRotation() {
   camera.updateMatrixWorld(true);
 }
 
+function getViewportSize() {
+  // setViewport / setScissor は CSS ピクセルで指定する。
+  // renderer.domElement.width / height は devicePixelRatio 適用後の
+  // 描画バッファサイズなので、ここに使うと高DPI端末で分割位置がずれる。
+  return {
+    width: Math.max(1, Math.round(renderer.domElement.clientWidth || window.innerWidth)),
+    height: Math.max(1, Math.round(renderer.domElement.clientHeight || window.innerHeight))
+  };
+}
+
 function renderNormal() {
   controls.update();
+  const { width, height } = getViewportSize();
   renderer.setScissorTest(false);
-  renderer.setViewport(0, 0, renderer.domElement.width, renderer.domElement.height);
+  renderer.setViewport(0, 0, width, height);
   renderer.render(scene, camera);
 }
 
 function renderStereo() {
   applyHeadRotation();
 
-  const w = renderer.domElement.width;
-  const h = renderer.domElement.height;
-  const half = Math.floor(w / 2);
+  const { width, height } = getViewportSize();
+  const half = width / 2;
 
-  // 片眼ごとの画角を横長画面に合わせる
-  camera.aspect = half / h;
+  // 片眼ごとの描画領域は画面幅のちょうど半分。
+  // StereoCamera が左右眼のオフセットを加える。
+  camera.aspect = half / height;
   camera.updateProjectionMatrix();
   stereo.update(camera);
 
   renderer.setScissorTest(true);
-  renderer.setScissor(0, 0, half, h);
-  renderer.setViewport(0, 0, half, h);
+
+  renderer.setScissor(0, 0, half, height);
+  renderer.setViewport(0, 0, half, height);
   renderer.render(scene, stereo.cameraL);
 
-  renderer.setScissor(half, 0, w - half, h);
-  renderer.setViewport(half, 0, w - half, h);
+  renderer.setScissor(half, 0, width - half, height);
+  renderer.setViewport(half, 0, width - half, height);
   renderer.render(scene, stereo.cameraR);
+
   renderer.setScissorTest(false);
 }
 
@@ -210,12 +225,23 @@ function animate() {
 animate();
 
 function resize() {
+  const width = Math.max(1, window.innerWidth);
+  const height = Math.max(1, window.innerHeight);
+
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
-  renderer.setSize(innerWidth, innerHeight, false);
+  renderer.setSize(width, height, false);
+
   if (!vrMode) {
-    camera.aspect = innerWidth / innerHeight;
+    camera.aspect = width / height;
     camera.updateProjectionMatrix();
   }
 }
+
 window.addEventListener('resize', resize);
-window.addEventListener('orientationchange', () => setTimeout(resize, 250));
+if (window.visualViewport) window.visualViewport.addEventListener('resize', resize);
+window.addEventListener('orientationchange', () => {
+  // iOS Safariは回転直後に複数回viewport寸法が変わることがある。
+  setTimeout(resize, 100);
+  setTimeout(resize, 350);
+  setTimeout(resize, 700);
+});
