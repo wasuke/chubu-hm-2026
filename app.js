@@ -345,7 +345,7 @@ const stereo =
 */
 
 stereo.eyeSep =
-  0.0055;
+  0.003;
 
 stereo.aspect =
   1;
